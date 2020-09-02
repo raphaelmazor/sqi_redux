@@ -1,3 +1,9 @@
+# SQI Recalibration Script
+# Creator: Raphael Mazor
+# Date: August 27th
+
+#### Packages ####
+
 library(tidyverse)
 library(DBI) # needed to connect to data.dfbase
 library(dbplyr) # needed to connect to data.dfbase
@@ -6,16 +12,17 @@ library(rstudioapi) # just so we can type the password as we run the script, so 
 library(tidyverse)
 library(lubridate)
 library(skimr)
+
 ####Create the connection####
 
 # con is short for connection
-# Create connection to the data.dfbase
-con <- dbConnect(
+# Create connection to the data.dfbase while hiding security credentials.
+con <- DBI::dbConnect(
   PostgreSQL(),
-  host = "192.168.1.17",
-  dbname = 'smc',
-  user = 'smcread',
-  password = rstudioapi::askForPassword() # Do no post password to github.
+  host = showPrompt("username", "Please enter the hostname of IP address of the database"),
+  dbname = showPrompt("dbname", "Please enter the name of the database"),
+  user = showPrompt("username", "Please enter the username for the database"),
+  askForPassword()
 )
 
 ####Create the SMC tables####
