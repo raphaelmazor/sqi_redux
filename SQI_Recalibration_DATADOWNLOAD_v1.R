@@ -26,6 +26,7 @@ con <- DBI::dbConnect(
 )
 
 ####Create the SMC tables####
+
 lustations.df<- dbGetQuery(con, ' 
                       SELECT * FROM
                       sde.lu_stations
@@ -42,6 +43,7 @@ chan.df<-dbGetQuery(con, '
 
 
 #Chemistry
+
 cond.df<-dbGetQuery(con, ' 
                       SELECT * FROM
                       sde.analysis_combined_specificconductivity
@@ -118,3 +120,5 @@ chem_premerge<-inner_join(cond.df_premerge %>%
                             filter(fieldreplicate==1 & labreplicate==1)
                             )
 #hab
+
+# End of script.
