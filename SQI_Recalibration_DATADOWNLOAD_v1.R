@@ -15,7 +15,7 @@ con <- dbConnect(
   host = "192.168.1.17",
   dbname = 'smc',
   user = 'smcread',
-  password = '1969$Harbor' # if we post to github, we might want to do rstudioapi::askForPassword()
+  password = rstudioapi::askForPassword() # Do no post password to github.
 )
 
 ####Create the SMC tables####
