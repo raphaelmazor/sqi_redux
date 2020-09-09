@@ -11,7 +11,7 @@ library(tidyverse)
 
 # Load in necessary SMC datasets.
 tbl_chem <- read_csv("tbl_chemistryresults_NP.csv")
-swamp_tax <- read_csv("swamp_taxonomysampleinfo.csv")
+#swamp_tax <- read_csv("swamp_taxonomysampleinfo.csv")
 
 #### Tidy ####
 
