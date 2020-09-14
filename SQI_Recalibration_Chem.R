@@ -11,13 +11,16 @@ library(tidyverse)
 
 # Load in necessary SMC datasets.
 tbl_chem <- read_csv("tbl_chemistryresults_NP.csv")
+legacy_tbl_chem <- read_csv("legacy_tbl_chemistryresults_NP.csv")
 #swamp_tax <- read_csv("swamp_taxonomysampleinfo.csv")
 
 #### Tidy ####
 
-# The tbl_chem dataset has been pulled from the SMC database and represents data that is submitted directly to SCCWRP by participating partners. There has been no filter imposed on this data except to pull only data using the following identifiers in the analytename column: "Nitrogen,Total", "Nitrate + Nitrite as N", "Nitrogen, Total Kjeldahl", "Ammonia as N", "Nitrate as N", "Nitrite as N", "OrthoPhosphate as P", and "Phosphorus as P".
+# The tbl_chem dataset has been pulled from the SMC database and represents data that is submitted directly to SCCWRP by participating partners. The legacy_tbl_chem dataset has also been pulled from the SMC database, but these are values collected prior to the institution of the new data checker/portal, so these were transferred from the old Access database.
 
-# The following code will trim it down further to generate a dataset with actual values of interest.
+#There has been no filter imposed on these data except to pull only data using the following identifiers in the analytename column: "Nitrogen,Total", "Nitrate + Nitrite as N", "Nitrogen, Total Kjeldahl", "Ammonia as N", "Nitrate as N", "Nitrite as N", "OrthoPhosphate as P", and "Phosphorus as P".
+
+# The following code will trim them down further to generate datasets with actual values of interest.
 
 chem_clean <- tbl_chem %>% # Takes the original dataset.
   filter(!stationcode %in% c("000NONPJ", "LABQA", "FBLANK")) %>% # Removes non-sample values.
@@ -25,6 +28,194 @@ chem_clean <- tbl_chem %>% # Takes the original dataset.
   filter(matrixname == "samplewater") %>% # Includes samples of water only.
   mutate(result_ed = ifelse(result < 0, 0, result)) # Creates a new column named result_ed in which all samples that were effectively reported as negative values instead are reported as 0. These values are not missing, just below the detection limit.
 
-# Paused here (9/4/2020), because data appears only to cover 2017-2020.
+chem_clean_legacy <- legacy_tbl_chem %>% # Same actions as above.
+  filter(!stationcode %in% c("000NONPJ", "LABQA", "FBLANK")) %>% 
+  filter(sampletypecode == "Grab") %>% 
+  filter(matrixname == "samplewater") %>% 
+  mutate(result_ed = ifelse(result < 0, 0, result))
+
+# How many P records? 282
+chem_clean_P <- chem_clean %>%
+  filter(analytename == "Phosphorus as P" | analytename == "OrthoPhosphate as P") %>%
+  filter(fieldreplicate == 1 & labreplicate == 1)
+
+# Legacy? 1344
+chem_clean_lP <- chem_clean_legacy %>%
+  filter(analytename == "Phosphorus as P" | analytename == "OrthoPhosphate as P") %>%
+  filter(fieldreplicate == 1 & labreplicate == 1)
+
+# How many N records? 628
+chem_clean_N <- chem_clean %>%
+  filter(analytename != "Phosphorus as P" & analytename != "OrthoPhosphate as P") %>%
+  filter(fieldreplicate == 1 & labreplicate == 1)
+
+# Legacy? 3465
+chem_clean_lN <- chem_clean_legacy %>%
+  filter(analytename != "Phosphorus as P" & analytename != "OrthoPhosphate as P") %>%
+  filter(fieldreplicate == 1 & labreplicate == 1)
+
+#### Visualize ####
+
+# Rough bar plots to see how the data is delineated by analyte.
+chem_clean_plot <- chem_clean %>%
+  ggplot(aes(x = analytename)) +
+  geom_bar(aes(fill = analytename)) +
+  labs(x = "Analyte",
+    y = "Record Count") +
+  theme_classic() +
+  theme(legend.position = "none")
+
+chem_clean_plot
+
+chem_clean_lplot <- chem_clean_legacy %>%
+  ggplot(aes(x = analytename)) +
+  geom_bar(aes(fill = analytename)) +
+  labs(x = "Analyte",
+    y = "Legacy Record Count") +
+  theme_classic() +
+  theme(legend.position = "none")
+
+chem_clean_lplot
+
+#### Missingness Exploration####
+
+# tbl_chemistryresults
+
+# Adding a new dataset that explicitly records which analytes were inputted on which dates (this will also give us an idea as to unique submissions).
+
+cc_P <- chem_clean_P %>%
+  filter(analytename == "Phosphorus as P") %>%
+  select(stationcode, sampledate, analytename) %>%
+  rename(P1 = analytename)
+
+cc_OP <- chem_clean_P %>%
+  filter(analytename == "OrthoPhosphate as P") %>%
+  select(stationcode, sampledate, analytename) %>%
+  rename(P2 = analytename)
+
+cc_all_P <- full_join(cc_P, cc_OP) # full join of phosphorus data (field and lab replicates #1 only).
+
+cc_TN <- chem_clean_N %>%
+  filter(analytename == "Nitrogen,Total") %>%
+  select(stationcode, sampledate, analytename) %>%
+  rename(N1 = analytename)
+
+cc_TKN <- chem_clean_N %>%
+  filter(analytename == "Nitrogen, Total Kjeldahl") %>%
+  select(stationcode, sampledate, analytename) %>%
+  rename(N2 = analytename)
+
+cc_all_N1 <- full_join(cc_TN, cc_TKN) # partial join of nitrogen data
+
+cc_NN <- chem_clean_N %>%
+  filter(analytename == "Nitrate + Nitrite as N") %>%
+  select(stationcode, sampledate, analytename) %>%
+  rename(N3 = analytename)
+
+cc_all_N2 <- full_join(cc_all_N1, cc_NN) # partial join of nitrogen data
+
+cc_NO3 <- chem_clean_N %>%
+  filter(analytename == "Nitrate as N") %>%
+  select(stationcode, sampledate, analytename) %>%
+  rename(N4 = analytename)
+
+cc_all_N3 <- full_join(cc_all_N2, cc_NO3) # partial join of nitrogen data
+
+cc_NO2 <- chem_clean_N %>%
+  filter(analytename == "Nitrite as N") %>%
+  select(stationcode, sampledate, analytename) %>%
+  rename(N5 = analytename)
+
+cc_all_N4 <- full_join(cc_all_N3, cc_NO2) # partial join of nitrogen data
+
+cc_NH4 <- chem_clean_N %>%
+  filter(analytename == "Ammonia as N") %>%
+  select(stationcode, sampledate, analytename) %>%
+  rename(N6 = analytename)
+
+cc_all_N <- full_join(cc_all_N4, cc_NH4) # full join of nitrogen data
+
+cc_all <- full_join(cc_all_P, cc_all_N) # full join of nutrient data
+
+# 141 unique records
+# P & N for 141 (100%)
+# Total P for 141 (100%)
+# Total N for 140 (99%) 
+# - Nitrogen,Total for 73 (52%)
+# - Nitrogen, Total Kjeldahl; Nitrate + Nitrite as N for 4 (3%)
+# - Nitrogen, Total Kjeldahl; Nitrate as N; Nitrite as N for 63 (45%)
+
+# legacy_tbl_chemistryresults
+
+# Adding new dataset that records which analytes were inputted on which dates.
+
+ccl_P <- chem_clean_lP %>%
+  filter(analytename == "Phosphorus as P") %>%
+  select(stationcode, sampledate, analytename) %>%
+  rename(P1 = analytename)
+
+ccl_OP <- chem_clean_lP %>%
+  filter(analytename == "OrthoPhosphate as P") %>%
+  select(stationcode, sampledate, analytename) %>%
+  rename(P2 = analytename)
+
+ccl_all_P <- full_join(ccl_P, ccl_OP) # full join of phosphorus data (field and lab replicates #1 only).
+
+ccl_TN <- chem_clean_lN %>%
+  filter(analytename == "Nitrogen,Total") %>%
+  select(stationcode, sampledate, analytename) %>%
+  rename(N1 = analytename)
+
+ccl_TKN <- chem_clean_lN %>%
+  filter(analytename == "Nitrogen, Total Kjeldahl") %>%
+  select(stationcode, sampledate, analytename) %>%
+  rename(N2 = analytename)
+
+ccl_all_N1 <- full_join(ccl_TN, ccl_TKN) # partial join of nitrogen data
+
+ccl_NN <- chem_clean_lN %>%
+  filter(analytename == "Nitrate + Nitrite as N") %>%
+  select(stationcode, sampledate, analytename) %>%
+  rename(N3 = analytename)
+
+ccl_all_N2 <- full_join(ccl_all_N1, ccl_NN) # partial join of nitrogen data
+
+ccl_NO3 <- chem_clean_lN %>%
+  filter(analytename == "Nitrate as N") %>%
+  select(stationcode, sampledate, analytename) %>%
+  rename(N4 = analytename)
+
+ccl_all_N3 <- full_join(ccl_all_N2, ccl_NO3) # partial join of nitrogen data
+
+ccl_NO2 <- chem_clean_lN %>%
+  filter(analytename == "Nitrite as N") %>%
+  select(stationcode, sampledate, analytename) %>%
+  rename(N5 = analytename)
+
+ccl_all_N4 <- full_join(ccl_all_N3, ccl_NO2) # partial join of nitrogen data
+
+ccl_NH4 <- chem_clean_lN %>%
+  filter(analytename == "Ammonia as N") %>%
+  select(stationcode, sampledate, analytename) %>%
+  rename(N6 = analytename)
+
+ccl_all_N <- full_join(ccl_all_N4, ccl_NH4) # full join of nitrogen data
+
+ccl_all <- full_join(ccl_all_P, ccl_all_N) # full join of nutrient data
+
+# 1906 unique records in the legacy table
+# P & N for 1687 (89%)
+# Total P for 1797 (94%)
+# Total N for 1735 (91%) 
+
+test <- ccl_all %>% 
+  filter(P1 == "Phosphorus as P") %>%
+  filter(N1 == "Nitrogen, Total" | 
+      N2 == "Nitrogen, Total Kjeldahl" & N4 == "Nitrate as N" & N5 == "Nitrite as N" |
+      N2 == "Nitrogen, Total Kjeldahl" & N3 == "Nitrate + Nitrite as N")
+
+# - Nitrogen,Total for 1529 (80%)
+# - Nitrogen, Total Kjeldahl; Nitrate + Nitrite as N for 935 (49%)
+# - Nitrogen, Total Kjeldahl; Nitrate as N; Nitrite as N for 1512 (79%)
 
 # End of script.
