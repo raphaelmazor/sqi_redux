@@ -219,4 +219,49 @@ test <- ccl_all %>%
 # - Nitrogen, Total Kjeldahl; Nitrate + Nitrite as N for 935 (49%)
 # - Nitrogen, Total Kjeldahl; Nitrate as N; Nitrite as N for 1512 (79%)
 
-# End of script.
+
+
+
+#### Separate datasets for analytes ####
+
+# Goal: Create separate datasets for each analytename in the chem_clean dataset where their results are "-88".
+
+missing_chem <- chem_clean %>% # takes dataset with values of interest
+  filter(result == "-88") # only looking at results listed with "-88", that are presumed to be 'missing data'
+# 282 entries
+
+# using analytename identifies to sort filter_chem in 8 separate tables
+
+total_N <- missing_chem %>% 
+  filter(analytename == "Nitrogen,Total") # creating a table with "Nitrogen,Total" in analytename column
+# 12 entries
+
+nitrate_nitrite <- missing_chem %>% 
+  filter(analytename == "Nitrate + Nitrite as N") # creating a table with "Nitrate + Nitrite as N" in analytename column
+# 24 entries
+
+total_Kjeldahl <- missing_chem %>% 
+  filter(analytename == "Nitrogen, Total Kjeldahl") # creating a table with "Nitrogen, Total Kjeldahl" in analytename column
+# 23 entries
+
+ammonia_N <- missing_chem %>% 
+  filter(analytename == "Ammonia as N") # creating a table with "Ammonia as N" in analytename column
+# 48 entries
+
+nitrate_N <- missing_chem %>% 
+  filter(analytename == "Nitrate as N") # creating a table with "Nitrate as N" in analytename column
+# 36 entries
+
+nitrite_N <- missing_chem %>% 
+  filter(analytename == "Nitrite as N") # creating a table with "Nitrite as N" in analytename column
+# 86 entries
+
+orthophospate_P <- missing_chem %>% 
+  filter(analytename == "OrthoPhosphate as P") # creating a table with "OrthoPhosphate as P" in analytename column
+# 42 entries
+
+phosphorus_P <- missing_chem %>% 
+  filter(analytename == "Phosphorus as P") # creating a table with "Phosphorus as P" in analytename column
+# 11 entries
+
+# paused here, by Jhen (9/15/2020)
