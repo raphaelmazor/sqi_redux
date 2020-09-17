@@ -19,7 +19,7 @@ legacy_tbl_chem <- read_csv("legacy_tbl_chemistryresults_NP.csv")
 
 # The tbl_chem dataset has been pulled from the SMC database and represents data that is submitted directly to SCCWRP by participating partners. The legacy_tbl_chem dataset has also been pulled from the SMC database, but these are values collected prior to the institution of the new data checker/portal, so these were transferred from the old Access database.
 
-#There has been no filter imposed on these data except to pull only data using the following identifiers in the analytename column: "Nitrogen,Total", "Nitrate + Nitrite as N", "Nitrogen, Total Kjeldahl", "Ammonia as N", "Nitrate as N", "Nitrite as N", "OrthoPhosphate as P", and "Phosphorus as P".
+#There has been no filter imposed on these data except to pull only data using the following identifiers in the analytename column: "Nitrogen,Total", "Nitrate + Nitrite as N", "Nitrogen, Total Kjeldahl", "Ammonia as N", "Nitrate as N", "Nitrate as N03", "Nitrite as N", "Nitrogen-Organic", "OrthoPhosphate as P", and "Phosphorus as P".
 
 # The following code will trim them down further to generate datasets with actual values of interest.
 
@@ -50,7 +50,7 @@ chem_clean_N <- chem_clean %>%
   filter(analytename != "Phosphorus as P" & analytename != "OrthoPhosphate as P") %>%
   filter(fieldreplicate == 1 & labreplicate == 1)
 
-# Legacy? 3465
+# Legacy? 3482
 chem_clean_lN <- chem_clean_legacy %>%
   filter(analytename != "Phosphorus as P" & analytename != "OrthoPhosphate as P") %>%
   filter(fieldreplicate == 1 & labreplicate == 1)
@@ -200,27 +200,41 @@ ccl_NH4 <- chem_clean_lN %>%
   select(stationcode, sampledate, analytename) %>%
   rename(N6 = analytename)
 
-ccl_all_N <- full_join(ccl_all_N4, ccl_NH4) # full join of nitrogen data
+ccl_all_N5 <- full_join(ccl_all_N4, ccl_NH4) # partial join of nitrogen data
+
+ccl_N03 <- chem_clean_lN %>%
+  filter(analytename == "Nitrate as N03") %>%
+  select(stationcode, sampledate, analytename) %>%
+  rename(N7 = analytename)
+
+ccl_all_N6 <- full_join(ccl_all_N5, ccl_N03) # partial join of nitrogen data
+
+ccl_ON <- chem_clean_lN %>%
+  filter(analytename == "Nitrogen-Organic") %>%
+  select(stationcode, sampledate, analytename) %>%
+  rename(N8 = analytename)
+
+ccl_all_N <- full_join(ccl_all_N6, ccl_ON) # full join of nitrogen data
 
 ccl_all <- full_join(ccl_all_P, ccl_all_N) # full join of nutrient data
 
-# 1906 unique records in the legacy table
-# P & N for 1687 (89%)
-# Total P for 1797 (94%)
-# Total N for 1735 (91%) 
+# 1923 unique records in the legacy table
+# P & N for 1783 (93%)
+# Total P for 1797 (93%)
+# Total N for 1833 (95%) 
 
+# I used various iterations of the code below to count how many instances of each of these combinations happened:
 test <- ccl_all %>% 
   filter(P1 == "Phosphorus as P") %>%
-  filter(N1 == "Nitrogen, Total" | 
+  filter(N1 == "Nitrogen,Total" | 
       N2 == "Nitrogen, Total Kjeldahl" & N4 == "Nitrate as N" & N5 == "Nitrite as N" |
+      N2 == "Nitrogen, Total Kjeldahl" & N7 == "Nitrate as N03" & N5 == "Nitrite as N" |
       N2 == "Nitrogen, Total Kjeldahl" & N3 == "Nitrate + Nitrite as N")
 
 # - Nitrogen,Total for 1529 (80%)
 # - Nitrogen, Total Kjeldahl; Nitrate + Nitrite as N for 935 (49%)
 # - Nitrogen, Total Kjeldahl; Nitrate as N; Nitrite as N for 1512 (79%)
-
-
-
+# - Nitrogen, Total Kjeldahl; Nitrate as N03; Nitrite as N for 0 (0%)
 
 #### Separate datasets for analytes ####
 
