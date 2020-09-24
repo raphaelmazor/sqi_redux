@@ -15,7 +15,7 @@ tbl_chem <- read_csv("tbl_chemistryresults_NP.csv")
 legacy_tbl_chem <- read_csv("legacy_tbl_chemistryresults_NP.csv")
 #swamp_tax <- read_csv("swamp_taxonomysampleinfo.csv")
 
-#### Tidy Data ####
+#### Tidy Data  ####
 
 # The tbl_chem dataset has been pulled from the SMC database and represents data that is submitted directly to SCCWRP by participating partners. The legacy_tbl_chem dataset has also been pulled from the SMC database, but these are values collected prior to the institution of the new data checker/portal, so these were transferred from the old Access database.
 
