@@ -1,7 +1,7 @@
 # SQI Recalibration Script re: Chemistry (N/P)
 # Creator: Heili Lowman
 # Date: September 4th
-# contributor: Jhen Cabasal
+# contributor: Jhen Cabasal, Megan Mirkhanian
 
 #### Packages ####
 
