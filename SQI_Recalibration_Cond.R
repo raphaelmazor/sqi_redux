@@ -1,7 +1,7 @@
 # SQI Recalibration Script re: Conductivity
 # Creator: Heili Lowman
 # Date: September 14th
-# contributor: Jhen Cabasal
+# contributor: Jhen Cabasal, Megan Mirkhanian
 
 #### Packages ####
 
@@ -30,24 +30,60 @@ cond_chem_clean <- tbl_chem_cond %>% # Takes the original dataset.
   filter(!stationcode %in% c("000NONPJ", "LABQA", "FBLANK")) %>% # Removes non-sample values.
   filter(sampletypecode == "Grab") %>% # Includes grab samples only.
   filter(matrixname == "samplewater") %>% # Includes samples of water only.
+  filter(fieldreplicate == 1) %>% # Includes only first field replicates.
+  filter(labreplicate == 1) %>% # Includes only first lab replicates.
   mutate(result_ed = ifelse(result < 0, 0, result)) # Creates a new column named result_ed in which all samples that were effectively reported as negative values instead are reported as 0. These values are not missing, just below the detection limit.
 
 cond_chem_clean_legacy <- legacy_tbl_chem_cond %>% # Same actions as above.
-  filter(analytename == "SpecificConductivity" | analytename == "ElectricalConductivity") %>% # Includes only conductivity measures.
+  filter(analytename == "SpecificConductivity" | analytename == "ElectricalConductivity") %>%
   filter(!stationcode %in% c("000NONPJ", "LABQA", "FBLANK")) %>% 
   filter(sampletypecode == "Grab") %>% 
   filter(matrixname == "samplewater") %>% 
+  filter(fieldreplicate == 1) %>% 
+  filter(labreplicate == 1) %>% 
   mutate(result_ed = ifelse(result < 0, 0, result))
 
 cond_phab_clean <- tbl_phab_cond %>% # Same actions as above.
-  filter(analytename == "SpecificConductivity" | analytename == "ElectricalConductivity") %>% # Includes only conductivity measures.
+  filter(analytename == "SpecificConductivity" | analytename == "ElectricalConductivity") %>% 
   filter(!stationcode %in% c("000NONPJ", "LABQA", "FBLANK")) %>% 
   filter(matrixname == "samplewater") %>% 
+  filter(fieldreplicate == 1) %>%
   mutate(result_ed = ifelse(result < 0, 0, result))
 
-# How many conductivity records from tbl_chemistryresults? 20
-# How many conductivity records from legacy_tbl_chemistryresults? 165
+# How many conductivity records from tbl_chemistryresults? 11
+# How many conductivity records from legacy_tbl_chemistryresults? 149
 # How many conductivity records from tbl_phab? 880
 
 #### Missingness Exploration ####
 
+# Creating new datasets that explicitly records unique sampling events for conductivity measures.
+
+# tbl_chemistryresults_cond
+
+ccc <- cond_chem_clean %>%
+  select(stationcode, sampledate, analytename) %>%
+  rename(C1 = analytename)
+
+# legacy_tbl_chemistryresults_cond
+
+cccl <- cond_chem_clean_legacy %>%
+  select(stationcode, sampledate, analytename) %>%
+  rename(C2 = analytename)
+
+# legacy_tbl_chemistryresults_cond
+
+cpc <- cond_phab_clean %>%
+  select(stationcode, sampledate, analytename) %>%
+  rename(C3 = analytename)
+
+# Join the above datasets together to examine for duplicates.
+
+cond_all_1 <- full_join(ccc, cccl) # partial join of chemistry data.
+
+cond_all <- full_join(cond_all_1, cpc) # partial join of phab data.
+
+# Only 1 of the 11 records in the ccc dataset is a unique record.
+# Only 64 of the 149 records in the cccl dataset is a unique record.
+# The remaining 880 of the cpc dataset brings the total # of unique records to 945.
+
+# End of script.
