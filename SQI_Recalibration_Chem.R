@@ -1,7 +1,7 @@
 # SQI Recalibration Script re: Chemistry (N/P)
 # Creator: Heili Lowman
 # Date: September 4th
-# contributor: Jhen Cabasal, Megan Mirkhanian, Raphael Mazor
+# contributors: Jhen Cabasal, Megan Mirkhanian, Raphael Mazor
 # Another comment. Heili was here.
 
 #### Packages ####
@@ -35,6 +35,7 @@ chem_clean_legacy <- legacy_tbl_chem %>% # Same actions as above.
   filter(sampletypecode == "Grab") %>% 
   filter(matrixname == "samplewater") %>% 
   mutate(result_ed = ifelse(result < 0, 0, result))
+
 
 # How many P records? 282
 chem_clean_P <- chem_clean %>%
@@ -147,6 +148,7 @@ cc_all <- full_join(cc_all_P, cc_all_N) # full join of nutrient data
 # - Nitrogen, Total Kjeldahl; Nitrate + Nitrite as N for 4 (3%)
 # - Nitrogen, Total Kjeldahl; Nitrate as N; Nitrite as N for 63 (45%)
 
+
 # legacy_tbl_chemistryresults
 
 # Adding new dataset that records which analytes were inputted on which dates.
@@ -237,7 +239,7 @@ test <- ccl_all %>%
 # - Nitrogen, Total Kjeldahl; Nitrate as N; Nitrite as N for 1512 (79%)
 # - Nitrogen, Total Kjeldahl; Nitrate as N03; Nitrite as N for 0 (0%)
 
-#### Separate datasets for analytes ####
+#### Separate datasets for analytes: chem_clean ####
 
 # Goal: Create separate datasets for each analytename in the chem_clean dataset where their results are "-88".
 
@@ -279,4 +281,15 @@ phosphorus_P <- missing_chem %>%
   filter(analytename == "Phosphorus as P") # creating a table with "Phosphorus as P" in analytename column
 # 11 entries
 
-# paused here, by Jhen (9/15/2020)
+
+#### Creating master lists of entries missing Total N or Total P ####
+
+chem_clean_longer <- chem_clean %>% 
+  pivot_wider(names_from = analytename, values_from = "result") %>%
+  filter(fieldreplicate == 1 & labreplicate == 1) %>%
+  select(stationcode, sampledate, login_owner, `Phosphorus as P`, `Nitrogen,Total`, `Nitrogen, Total Kjeldahl`, `Nitrate + Nitrite as N`, `Nitrate as N`, `Nitrite as N`)
+
+ccl_longer <- chem_clean_legacy %>% 
+  pivot_wider(names_from = analytename, values_from = "result") %>% 
+  filter(fieldreplicate == 1 & labreplicate == 1) %>% 
+  select(stationcode, sampledate, login_owner, `Phosphorus as P`, `Nitrogen,Total`, `Nitrogen, Total Kjeldahl`, `Nitrate + Nitrite as N`, `Nitrate as N03`, `Nitrate as N`, `Nitrite as N`)
