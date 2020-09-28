@@ -285,9 +285,10 @@ phosphorus_P <- missing_chem %>%
 #### Creating master lists of entries missing Total N or Total P ####
 
 chem_clean_longer <- chem_clean %>% 
-  pivot_wider(names_from = analytename, values_from = "result") %>%
+  pivot_wider(id_cols = c("stationcode", "sampledate", "login_owner"), names_from = analytename, values_from = "result") %>%
   filter(fieldreplicate == 1 & labreplicate == 1) %>%
   select(stationcode, sampledate, login_owner, `Phosphorus as P`, `Nitrogen,Total`, `Nitrogen, Total Kjeldahl`, `Nitrate + Nitrite as N`, `Nitrate as N`, `Nitrite as N`)
+# comment
 
 ccl_longer <- chem_clean_legacy %>% 
   pivot_wider(names_from = analytename, values_from = "result") %>% 
