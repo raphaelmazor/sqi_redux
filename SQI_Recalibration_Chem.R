@@ -244,10 +244,12 @@ test <- ccl_all %>%
 # Goal: Create separate datasets for each analytename in the chem_clean dataset where their results are "-88".
 
 missing_chem <- chem_clean %>% # takes dataset with values of interest
-  filter(result == "-88") # only looking at results listed with "-88", that are presumed to be 'missing data'
+  filter(result == "-88") %>% # only looking at results listed with "-88", that are presumed to be 'missing data'
+  select(stationcode, sampledate, login_owner, analytename) # selects these columns only
 # 282 entries
 
-# using analytename identifies to sort filter_chem in 8 separate tables
+# using individual analytes from 'analytename' to sort chem_clean into 8 separate tables
+# unique(chem_clean$analytename) to list individual analytes
 
 total_N <- missing_chem %>% 
   filter(analytename == "Nitrogen,Total") # creating a table with "Nitrogen,Total" in analytename column
@@ -285,12 +287,16 @@ phosphorus_P <- missing_chem %>%
 #### Creating master lists of entries missing Total N or Total P ####
 
 chem_clean_longer <- chem_clean %>% 
-  pivot_wider(id_cols = c("stationcode", "sampledate", "login_owner"), names_from = analytename, values_from = "result") %>%
+  pivot_wider(id_cols = c("stationcode", "sampledate", "login_owner"), names_from = analytename, values_from = "result", values_fn = length) %>%
   filter(fieldreplicate == 1 & labreplicate == 1) %>%
   select(stationcode, sampledate, login_owner, `Phosphorus as P`, `Nitrogen,Total`, `Nitrogen, Total Kjeldahl`, `Nitrate + Nitrite as N`, `Nitrate as N`, `Nitrite as N`)
-# comment
+
+# id_cols = c("stationcode", "sampledate", "login_owner"), 
 
 ccl_longer <- chem_clean_legacy %>% 
-  pivot_wider(names_from = analytename, values_from = "result") %>% 
+  mutate(sampledate = as.character(sampledate), login_owner = as.character(login_owner)) %>% 
+  merge(by.x = stationcode, by.y = sampledate)
+  pivot_wider(names_from = analytename, values_from = result) %>% 
   filter(fieldreplicate == 1 & labreplicate == 1) %>% 
   select(stationcode, sampledate, login_owner, `Phosphorus as P`, `Nitrogen,Total`, `Nitrogen, Total Kjeldahl`, `Nitrate + Nitrite as N`, `Nitrate as N03`, `Nitrate as N`, `Nitrite as N`)
+
