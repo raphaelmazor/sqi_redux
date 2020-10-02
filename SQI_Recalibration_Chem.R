@@ -239,10 +239,12 @@ test <- ccl_all %>%
 # - Nitrogen, Total Kjeldahl; Nitrate as N; Nitrite as N for 1512 (79%)
 # - Nitrogen, Total Kjeldahl; Nitrate as N03; Nitrite as N for 0 (0%)
 
+# Jhen's script
+
 #### Separate datasets for analytes: chem_clean ####
+# presently ignore
 
 # Goal: Create separate datasets for each analytename in the chem_clean dataset where their results are "-88".
-
 missing_chem <- chem_clean %>% # takes dataset with values of interest
   filter(result == "-88") %>% # only looking at results listed with "-88", that are presumed to be 'missing data'
   select(stationcode, sampledate, login_owner, analytename) # selects these columns only
@@ -285,24 +287,26 @@ phosphorus_P <- missing_chem %>%
 
 #### Creating master lists of entries missing Total N or Total P ####
 
-# finished chunk
+# origin: tbl_chemistry
 cc_longer <- chem_clean %>% # using chem_clean dataset
   filter(fieldreplicate == 1 & labreplicate == 1) %>% # takes only the 1st replicate of samples
   select(stationcode, sampledate, login_owner, analytename, result) %>% # selects these columns only
-  pivot_wider(names_from = "analytename", values_from = "result") # take analytename column, and separates each analyte into its own column with respective result values
-cc_longer <- cc_longer[, c("stationcode", "sampledate", "login_owner", "Phosphorus as P", "OrthoPhosphate as P", "Nitrogen,Total", "Nitrogen, Total Kjeldahl", "Nitrate + Nitrite as N", "Nitrite as N", "Nitrate as N")] # reorders analyte columns
+  pivot_wider(names_from = "analytename", values_from = "result", values_fn = length) # take analytename column, and separates each analyte into its own column with respective result values
+
+cc_longer_final <- cc_longer[, c("stationcode", "sampledate", "login_owner", "Phosphorus as P", "Nitrogen,Total", "Nitrogen, Total Kjeldahl", "Nitrate + Nitrite as N", "Nitrite as N", "Nitrate as N")] # reorders analyte columns
+# removed 'Ammonia as N' & 'OrthoPhosphate as P', not used a measure of Total Nitrogen/Phosphorus
   
-#chunk in progress :(
+# origin: legacy_tbl_chemistry
 # note: login_owner column was excluded due to missing information
 ccl_longer <- chem_clean_legacy %>% # using chem_clean_legacy dataset
   filter(fieldreplicate == 1 & labreplicate == 1) %>% # takes only the 1st replicate of samples
-  dplyr::na_if(-99) %>% # replaces '-99' values with 'NA'
   select(stationcode, sampledate, analytename, result) %>% # selects these columns only
-  pivot_wider(names_from = "analytename", values_from = "result") # take analytename column, and separates each analyte into its own column with respective result values
+  pivot_wider(names_from = "analytename", values_from = "result", values_fn = length) # "values_fn = length" counts out duplicates
+  
+ccl_longer_final <- ccl_longer[, c("stationcode", "sampledate", "Phosphorus as P", "Nitrogen,Total", "Nitrogen, Total Kjeldahl", "Nitrate + Nitrite as N", "Nitrite as N", "Nitrate as N", "Nitrate as N03")] # again, reordered columns and removed irrelevant ones
+  
+# 2nd Goal: -	Create a listing of the duplicate records between the tbl_chem and legacy_tbl_chem datasets.
 
-# everything works UNTIL pivot_wider...
-# Warning message:
-#   Values are not uniquely identified; output will contain list-cols.
-# * Use `values_fn = list` to suppress this warning.
-# * Use `values_fn = length` to identify where the duplicates arise
-# * Use `values_fn = {summary_fun}` to summarise duplicates 
+# full join of cc_longer_final and ccl_longer_final, maybe?
+
+# End of script. 10/2/2020
