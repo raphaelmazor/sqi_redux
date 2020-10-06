@@ -294,3 +294,5 @@ ccl_longer <- chem_clean_legacy %>%
   filter(fieldreplicate == 1 & labreplicate == 1) %>% 
   union() 
   select(stationcode, sampledate, login_owner, `Phosphorus as P`, `Nitrogen,Total`, `Nitrogen, Total Kjeldahl`, `Nitrate + Nitrite as N`, `Nitrate as N03`, `Nitrate as N`, `Nitrite as N`)s
+
+  
