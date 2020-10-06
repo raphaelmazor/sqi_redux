@@ -164,4 +164,16 @@ chemistry_full_trim <- chemistry_full %>%
 
 # 245/1126 records missing conductivity. 353/1126 records missing phosphorus as P (good proxy for nutrients in general).
 
+chemistry_both <- chemistry_full %>%
+  drop_na("Phosphorus as P") %>%
+  drop_na("SpecificConductivity")
+
+# 533/1126 records have both nutrients + conductivity.
+
+# Checking to see if there are duplicates in entries that might be double-counting sampling events.
+
+miy <- chemistry_full$masterid_Year
+dup <- duplicated(miy)
+bind <- data.frame(miy, dup)
+
 # End of script.
