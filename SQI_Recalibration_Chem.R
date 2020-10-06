@@ -36,6 +36,7 @@ chem_clean_legacy <- legacy_tbl_chem %>% # Same actions as above.
   filter(matrixname == "samplewater") %>% 
   mutate(result_ed = ifelse(result < 0, 0, result))
 
+# counts of N & P records from both datasets
 
 # How many P records? 282
 chem_clean_P <- chem_clean %>%
@@ -148,7 +149,6 @@ cc_all <- full_join(cc_all_P, cc_all_N) # full join of nutrient data
 # - Nitrogen, Total Kjeldahl; Nitrate + Nitrite as N for 4 (3%)
 # - Nitrogen, Total Kjeldahl; Nitrate as N; Nitrite as N for 63 (45%)
 
-
 # legacy_tbl_chemistryresults
 
 # Adding new dataset that records which analytes were inputted on which dates.
@@ -239,16 +239,19 @@ test <- ccl_all %>%
 # - Nitrogen, Total Kjeldahl; Nitrate as N; Nitrite as N for 1512 (79%)
 # - Nitrogen, Total Kjeldahl; Nitrate as N03; Nitrite as N for 0 (0%)
 
+# Jhen's script
+
 #### Separate datasets for analytes: chem_clean ####
+# presently ignore
 
 # Goal: Create separate datasets for each analytename in the chem_clean dataset where their results are "-88".
-
 missing_chem <- chem_clean %>% # takes dataset with values of interest
-  filter(result == "-88") # only looking at results listed with "-88", that are presumed to be 'missing data'
+  filter(result == "-88") %>% # only looking at results listed with "-88", that are presumed to be 'missing data'
+  select(stationcode, sampledate, login_owner, analytename) # selects these columns only
 # 282 entries
 
-# using analytename identifies to sort filter_chem in 8 separate tables
-
+# using individual analytes from 'analytename' to sort chem_clean into 8 separate tables
+# unique(chem_clean$analytename) to list individual analytes
 total_N <- missing_chem %>% 
   filter(analytename == "Nitrogen,Total") # creating a table with "Nitrogen,Total" in analytename column
 # 12 entries
@@ -284,15 +287,26 @@ phosphorus_P <- missing_chem %>%
 
 #### Creating master lists of entries missing Total N or Total P ####
 
-chem_clean_longer <- chem_clean %>% 
-  pivot_wider(names_from = analytename, values_from = "result") %>%
-  filter(fieldreplicate == 1 & labreplicate == 1) %>%
-  select(stationcode, sampledate, login_owner, `Phosphorus as P`, `Nitrogen,Total`, `Nitrogen, Total Kjeldahl`, `Nitrate + Nitrite as N`, `Nitrate as N`, `Nitrite as N`)
+# origin: tbl_chemistry
+cc_longer <- chem_clean %>% # using chem_clean dataset
+  filter(fieldreplicate == 1 & labreplicate == 1) %>% # takes only the 1st replicate of samples
+  select(stationcode, sampledate, login_owner, analytename, result) %>% # selects these columns only
+  pivot_wider(names_from = "analytename", values_from = "result", values_fn = length) # take analytename column, and separates each analyte into its own column with respective result values
 
-ccl_longer <- chem_clean_legacy %>% 
-  pivot_wider(names_from = analytename, values_from = "result") %>% 
-  filter(fieldreplicate == 1 & labreplicate == 1) %>% 
-  union() 
-  select(stationcode, sampledate, login_owner, `Phosphorus as P`, `Nitrogen,Total`, `Nitrogen, Total Kjeldahl`, `Nitrate + Nitrite as N`, `Nitrate as N03`, `Nitrate as N`, `Nitrite as N`)s
-
+cc_longer_final <- cc_longer[, c("stationcode", "sampledate", "login_owner", "Phosphorus as P", "Nitrogen,Total", "Nitrogen, Total Kjeldahl", "Nitrate + Nitrite as N", "Nitrite as N", "Nitrate as N")] # reorders analyte columns
+# removed 'Ammonia as N' & 'OrthoPhosphate as P', not used a measure of Total Nitrogen/Phosphorus
   
+# origin: legacy_tbl_chemistry
+# note: login_owner column was excluded due to missing information
+ccl_longer <- chem_clean_legacy %>% # using chem_clean_legacy dataset
+  filter(fieldreplicate == 1 & labreplicate == 1) %>% # takes only the 1st replicate of samples
+  select(stationcode, sampledate, analytename, result) %>% # selects these columns only
+  pivot_wider(names_from = "analytename", values_from = "result", values_fn = length) # "values_fn = length" counts out duplicates
+  
+ccl_longer_final <- ccl_longer[, c("stationcode", "sampledate", "Phosphorus as P", "Nitrogen,Total", "Nitrogen, Total Kjeldahl", "Nitrate + Nitrite as N", "Nitrite as N", "Nitrate as N", "Nitrate as N03")] # again, reordered columns and removed irrelevant ones
+  
+# 2nd Goal: -	Create a listing of the duplicate records between the tbl_chem and legacy_tbl_chem datasets.
+
+# full join of cc_longer_final and ccl_longer_final, maybe?
+
+# End of script. 10/2/2020
