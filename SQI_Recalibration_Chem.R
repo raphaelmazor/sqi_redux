@@ -28,13 +28,17 @@ chem_clean <- tbl_chem %>% # Takes the original dataset.
   filter(!stationcode %in% c("000NONPJ", "LABQA", "FBLANK")) %>% # Removes non-sample values.
   filter(sampletypecode == "Grab") %>% # Includes grab samples only.
   filter(matrixname == "samplewater") %>% # Includes samples of water only.
-  mutate(result_ed = ifelse(result < 0, 0, result)) # Creates a new column named result_ed in which all samples that were effectively reported as negative values instead are reported as 0. These values are not missing, just below the detection limit.
+  filter(fieldreplicate == 1) %>% # Includes only first field replicates.
+  filter(labreplicate == 1) # Includes only first lab replicates.
 
 chem_clean_legacy <- legacy_tbl_chem %>% # Same actions as above.
   filter(!stationcode %in% c("000NONPJ", "LABQA", "FBLANK")) %>% 
   filter(sampletypecode == "Grab") %>% 
-  filter(matrixname == "samplewater") %>% 
-  mutate(result_ed = ifelse(result < 0, 0, result))
+  filter(matrixname == "samplewater") %>%
+  filter(fieldreplicate == 1) %>% 
+  filter(labreplicate == 1) %>%
+  filter(!grepl('Duplicate', fieldsampleid)) %>% # removes duplicates
+  filter(!grepl('DUP', fieldsampleid)) # removes duplicates
 
 # counts of N & P records from both datasets
 
@@ -289,24 +293,25 @@ phosphorus_P <- missing_chem %>%
 
 # origin: tbl_chemistry
 cc_longer <- chem_clean %>% # using chem_clean dataset
-  filter(fieldreplicate == 1 & labreplicate == 1) %>% # takes only the 1st replicate of samples
   select(stationcode, sampledate, login_owner, analytename, result) %>% # selects these columns only
-  pivot_wider(names_from = "analytename", values_from = "result", values_fn = length) # take analytename column, and separates each analyte into its own column with respective result values
+  pivot_wider(names_from = "analytename", values_from = "result") %>% # creates new columns by analyte
+  relocate("Phosphorus as P", .after = last_col()) %>% # reorganizes column order
+  mutate(Date = as.Date(sampledate)) %>% 
+  mutate(Year = year(Date)) %>% # new date/year columns
+  select(-c("Ammonia as N", "OrthoPhosphate as P")) # removed 'Ammonia as N' & 'OrthoPhosphate as P', not used a measure of TN/TP
 
-cc_longer_final <- cc_longer[, c("stationcode", "sampledate", "login_owner", "Phosphorus as P", "Nitrogen,Total", "Nitrogen, Total Kjeldahl", "Nitrate + Nitrite as N", "Nitrite as N", "Nitrate as N")] # reorders analyte columns
-# removed 'Ammonia as N' & 'OrthoPhosphate as P', not used a measure of Total Nitrogen/Phosphorus
-  
 # origin: legacy_tbl_chemistry
 # note: login_owner column was excluded due to missing information
 ccl_longer <- chem_clean_legacy %>% # using chem_clean_legacy dataset
-  filter(fieldreplicate == 1 & labreplicate == 1) %>% # takes only the 1st replicate of samples
-  select(stationcode, sampledate, analytename, result) %>% # selects these columns only
-  pivot_wider(names_from = "analytename", values_from = "result", values_fn = length) # "values_fn = length" counts out duplicates
-  
-ccl_longer_final <- ccl_longer[, c("stationcode", "sampledate", "Phosphorus as P", "Nitrogen,Total", "Nitrogen, Total Kjeldahl", "Nitrate + Nitrite as N", "Nitrite as N", "Nitrate as N", "Nitrate as N03")] # again, reordered columns and removed irrelevant ones
-  
-# 2nd Goal: -	Create a listing of the duplicate records between the tbl_chem and legacy_tbl_chem datasets.
+  select(stationcode, sampledate, analytename, result) %>%
+  pivot_wider(names_from = "analytename", values_from = "result", values_fn = length) %>% 
+  relocate("Phosphorus as P", .after = last_col()) %>%
+  mutate(Date = as.Date(sampledate)) %>% 
+  mutate(Year = year(Date)) %>%
+  select(-c("Ammonia as N", "OrthoPhosphate as P", "Nitrogen-Organic")) # again, removed irrelevant analytes
 
-# full join of cc_longer_final and ccl_longer_final, maybe?
+  
+# 2nd Goal:	Create a listing of the duplicate records between the tbl_chem and legacy_tbl_chem datasets.
+
 
 # End of script. 10/2/2020
