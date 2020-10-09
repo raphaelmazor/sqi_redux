@@ -85,18 +85,28 @@ cond_all <- full_join(cond_all_1, cpc) # partial join of phab data.
 # Only 1 of the 11 records in the ccc dataset is a unique record.
 # Only 64 of the 149 records in the cccl dataset is a unique record.
 # The remaining 880 of the cpc dataset brings the total # of unique records to 945.
+
 ####Duplicate List####
+
 #reate a listing of the duplicate records between the tbl_chem_cond, legacy_tbl_chem_cond, and tbl_phab_cond datasets
 #Rename cond_all to have a separate file
 duplicate_cond_all<- cond_all
+
 #find duplicates for C1 and C3 first for SpecificConductivity
 duplicate_cond_all_C1_C3<- duplicate_cond_all %>%
   filter (C1=="SpecificConductivity" & C3=="SpecificConductivity")
+
 #find duplicates for C2 and C3 for SpecificConductivity 
 duplicate_cond_all_C2_C3<- duplicate_cond_all %>%
   filter (C2=="SpecificConductivity" & C3=="SpecificConductivity")
+
+#find duplicates for C2 and C3 for SpecificConductivity and ElectricalConductivity
+duplicate_cond_all_C2_C3EandC<- duplicate_cond_all %>%
+  filter (C2=="ElectricalConductivity" & C3=="SpecificConductivity")
+
 #add together duplicate from (C1,C2)and duplicates from (C2,C3)
-combine_duplicate_cond_all<-full_join(duplicate_cond_all_C1_C3,duplicate_cond_all_C2_C3)
+column_2<-full_join(duplicate_cond_all_C2_C3,duplicate_cond_all_C2_C3EandC)
+combine_duplicate_cond_all<-full_join(duplicate_cond_all_C1_C3,column_2)
 
 
 # End of script.
