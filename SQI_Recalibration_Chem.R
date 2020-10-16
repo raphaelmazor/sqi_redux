@@ -8,6 +8,7 @@
 
 # Attach necessary packages.
 library(tidyverse)
+library(lubridate)
 
 #### Data Import ####
 
@@ -36,9 +37,7 @@ chem_clean_legacy <- legacy_tbl_chem %>% # Same actions as above.
   filter(sampletypecode == "Grab") %>% 
   filter(matrixname == "samplewater") %>%
   filter(fieldreplicate == 1) %>% 
-  filter(labreplicate == 1) %>%
-  filter(!grepl('Duplicate', fieldsampleid)) %>% # removes duplicates
-  filter(!grepl('DUP', fieldsampleid)) # removes duplicates
+  filter(labreplicate == 1)
 
 # counts of N & P records from both datasets
 
@@ -243,75 +242,35 @@ test <- ccl_all %>%
 # - Nitrogen, Total Kjeldahl; Nitrate as N; Nitrite as N for 1512 (79%)
 # - Nitrogen, Total Kjeldahl; Nitrate as N03; Nitrite as N for 0 (0%)
 
-# Jhen's script
+# Jhen's script 
 
-#### Separate datasets for analytes: chem_clean ####
-# presently ignore
+#### Identifying Duplicates ####
 
-# Goal: Create separate datasets for each analytename in the chem_clean dataset where their results are "-88".
-missing_chem <- chem_clean %>% # takes dataset with values of interest
-  filter(result == "-88") %>% # only looking at results listed with "-88", that are presumed to be 'missing data'
-  select(stationcode, sampledate, login_owner, analytename) # selects these columns only
-# 282 entries
+# Create a listing of the duplicate records between the tbl_chem and legacy_tbl_chem datasets.
 
-# using individual analytes from 'analytename' to sort chem_clean into 8 separate tables
-# unique(chem_clean$analytename) to list individual analytes
-total_N <- missing_chem %>% 
-  filter(analytename == "Nitrogen,Total") # creating a table with "Nitrogen,Total" in analytename column
-# 12 entries
+cc <- chem_clean %>%
+  select(stationcode, sampledate, analytename, result) %>% # selects specific columns
+  mutate(Date = as.Date(sampledate)) %>% # creates new column
+  mutate(Year = year(Date)) %>% # creates new column
+  mutate(stationcode_Year = paste(stationcode, Year, sep="_")) # creates new column, combining station code & Year
 
-nitrate_nitrite <- missing_chem %>% 
-  filter(analytename == "Nitrate + Nitrite as N") # creating a table with "Nitrate + Nitrite as N" in analytename column
-# 24 entries
-
-total_Kjeldahl <- missing_chem %>% 
-  filter(analytename == "Nitrogen, Total Kjeldahl") # creating a table with "Nitrogen, Total Kjeldahl" in analytename column
-# 23 entries
-
-ammonia_N <- missing_chem %>% 
-  filter(analytename == "Ammonia as N") # creating a table with "Ammonia as N" in analytename column
-# 48 entries
-
-nitrate_N <- missing_chem %>% 
-  filter(analytename == "Nitrate as N") # creating a table with "Nitrate as N" in analytename column
-# 36 entries
-
-nitrite_N <- missing_chem %>% 
-  filter(analytename == "Nitrite as N") # creating a table with "Nitrite as N" in analytename column
-# 86 entries
-
-orthophospate_P <- missing_chem %>% 
-  filter(analytename == "OrthoPhosphate as P") # creating a table with "OrthoPhosphate as P" in analytename column
-# 42 entries
-
-phosphorus_P <- missing_chem %>% 
-  filter(analytename == "Phosphorus as P") # creating a table with "Phosphorus as P" in analytename column
-# 11 entries
-
-
-#### Creating master lists of entries missing Total N or Total P ####
-
-# origin: tbl_chemistry
-cc_longer <- chem_clean %>% # using chem_clean dataset
-  select(stationcode, sampledate, login_owner, analytename, result) %>% # selects these columns only
-  pivot_wider(names_from = "analytename", values_from = "result") %>% # creates new columns by analyte
-  relocate("Phosphorus as P", .after = last_col()) %>% # reorganizes column order
-  mutate(Date = as.Date(sampledate)) %>% 
-  mutate(Year = year(Date)) %>% # new date/year columns
-  select(-c("Ammonia as N", "OrthoPhosphate as P")) # removed 'Ammonia as N' & 'OrthoPhosphate as P', not used a measure of TN/TP
-
-# origin: legacy_tbl_chemistry
-# note: login_owner column was excluded due to missing information
-ccl_longer <- chem_clean_legacy %>% # using chem_clean_legacy dataset
-  select(stationcode, sampledate, analytename, result) %>%
-  pivot_wider(names_from = "analytename", values_from = "result", values_fn = length) %>% 
-  relocate("Phosphorus as P", .after = last_col()) %>%
+ccl <- chem_clean_legacy %>% # same steps as above
+  select(stationcode, sampledate, analytename, result) %>% 
   mutate(Date = as.Date(sampledate)) %>% 
   mutate(Year = year(Date)) %>%
-  select(-c("Ammonia as N", "OrthoPhosphate as P", "Nitrogen-Organic")) # again, removed irrelevant analytes
-
+  mutate(stationcode_Year = paste(stationcode, Year, sep="_"))
   
-# 2nd Goal:	Create a listing of the duplicate records between the tbl_chem and legacy_tbl_chem datasets.
+chem_full <- full_join(cc, ccl) %>% # join "cleaner" versions of chem_clean & chem_clean_legacy
+  pivot_wider(names_from = "analytename", values_from = "result", values_fn = length) %>% # made separate analyte columns
+  distinct(stationcode_Year, .keep_all = TRUE) %>% 
+  relocate("Phosphorus as P", .after = last_col()) %>% # reorganized column order
+  select(-c("Ammonia as N", "OrthoPhosphate as P", "Nitrogen-Organic")) # removed analytes not used as a measure of TN/TP
 
+chem_dups <- full_join(cc, ccl) %>% # same code as above
+  pivot_wider(names_from = "analytename", values_from = "result", values_fn = length) %>%
+  distinct(stationcode_Year, .keep_all = TRUE) %>% 
+  relocate("Phosphorus as P", .after = last_col()) %>%
+  select(-c("Ammonia as N", "OrthoPhosphate as P", "Nitrogen-Organic")) %>%
+  filter_at(vars(-stationcode, sampledate, Date, Year, stationcode_Year), any_vars(. == 2)) # filters out duplicate entries
 
 # End of script. 10/2/2020
