@@ -271,6 +271,9 @@ chem_dups <- full_join(cc, ccl) %>% # same code as above
   distinct(stationcode_Year, .keep_all = TRUE) %>% 
   relocate("Phosphorus as P", .after = last_col()) %>%
   select(-c("Ammonia as N", "OrthoPhosphate as P", "Nitrogen-Organic")) %>%
-  filter_at(vars(-stationcode, sampledate, Date, Year, stationcode_Year), any_vars(. == 2)) # filters out duplicate entries
+  filter_at(vars(-stationcode, sampledate, Date, Year, stationcode_Year), any_vars(. == 2)) %>% # filters out duplicate entries
+  slice(-1) # eliminates top row (contains data from 1950, not using)
 
-# End of script. 10/2/2020
+write_csv(chem_dups, "chem_dups.csv")
+
+# End of script. 10/16/2020
