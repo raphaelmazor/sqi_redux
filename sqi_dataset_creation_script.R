@@ -1,0 +1,109 @@
+# SQI test code script
+# January 4, 2021
+# Heili Lowman
+
+# The following script will store code bits to be added to the SQI shiny application code when it is updated with the "live" dataset connection.
+
+# Load package.
+library(tidyverse)
+
+# Load test data (queried by Robert late last year).
+sqi_query <- read_csv("SQI_Query_Dec_2020.csv")
+
+# Add in various columns to re-create dataset that Marcus used in the first iteration of the SQI shiny.
+
+sqidat <- sqi_query %>%
+  
+  # Add CSCI classification column.
+  mutate(CSCI_rc = case_when(csci < 0.63 ~ "vla",
+    csci >= 0.63 & csci < 0.79 ~ "la",
+    csci >= 0.79 & csci < 0.92 ~ "pa",
+    csci >= 0.92 ~ "li")) %>%
+  
+  # Add ASCI classification column.
+  mutate(ASCI_rc = case_when(d_asci < 0.70 ~ "vla",
+    d_asci >= 0.70 & d_asci < 0.83 ~ "la",
+    d_asci >= 0.83 & d_asci < 0.93 ~ "pa",
+    d_asci >= 0.93 ~ "li")) %>%
+  
+  # Add BPJ score column (based on Beck et al., 2019, Table 1)
+  mutate(Bio_BPJ = case_when(d_asci >= 0.93 & csci >= 0.92 ~ 5,
+    d_asci >= 0.93 & csci >= 0.79 & csci < 0.92 ~ 3,
+    d_asci >= 0.93 & csci >= 0.63 & csci < 0.79 ~ -1,
+    d_asci >= 0.93 & csci < 0.63 ~ -2,
+    d_asci >= 0.83 & d_asci < 0.93 & csci >= 0.92 ~ 3,
+    d_asci >= 0.83 & d_asci < 0.93 & csci >= 0.79 & csci < 0.92 ~ 2,
+    d_asci >= 0.83 & d_asci < 0.93 & csci >= 0.63 & csci < 0.79 ~ -2,
+    d_asci >= 0.83 & d_asci < 0.93 & csci < 0.63 ~ -4,
+    d_asci >= 0.70 & d_asci < 0.83 & csci >= 0.92 ~ -1,
+    d_asci >= 0.70 & d_asci < 0.83 & csci >= 0.79 & csci < 0.92 ~ -2,
+    d_asci >= 0.70 & d_asci < 0.83 & csci >= 0.63 & csci < 0.79 ~ -3,
+    d_asci >= 0.70 & d_asci < 0.83 & csci < 0.63 ~ -5,
+    d_asci < 0.70 & csci >= 0.92 ~ -2,
+    d_asci < 0.70 & csci >= 0.79 & csci < 0.92 ~ -4,
+    d_asci < 0.70 & csci >= 0.63 & csci < 0.79 ~ -5,
+    d_asci < 0.70 & csci < 0.63 ~ -6)) %>%
+  
+  # Add additional bio score column.
+  mutate(bio_fp = case_when(Bio_BPJ < 1 ~ 0,
+    Bio_BPJ >= 1 ~ 1)) %>%
+  
+  # Add pChem score column. UPDATE USING R MODEL.
+  mutate(pChem = 0.009) %>%
+  
+  # Add pHab score column. UPDATE USING R MODEL.
+  mutate(pHab = 0.009) %>%
+  
+  # Add pChemHab score column.
+  mutate(pChemHab = 1 - ( (1-pChem) * (1-pHab))) %>%
+  
+  # Add Biological condition column.
+  mutate(BiologicalCondition = case_when(
+    CSCI_rc == "li" | CSCI_rc == "pa" &
+      ASCI_rc == "li" | ASCI_rc == "pa" ~ "Healthy",
+    CSCI_rc == "la" | CSCI_rc == "vla" &
+      ASCI_rc == "li" | ASCI_rc == "pa" ~ "Impacted for CSCI", 
+    CSCI_rc == "li" | CSCI_rc == "pa" &
+      ASCI_rc == "la" | ASCI_rc == "vla" ~ "Impacted for ASCI", 
+    CSCI_rc == "la" | CSCI_rc == "vla" &
+      ASCI_rc == "la" | ASCI_rc == "vla" ~ "Impacted for both")) %>%
+  
+  # Add Water Chemistry condition column.
+  mutate(WaterChemistryCondition = case_when(pChem < 0.1 ~ "Low",
+    pChem >= 0.1 & pChem < 0.9 ~ "Moderate",
+    pChem >= 0.9 ~ "Severe")) %>%
+  
+  # Add Habitat condition column.
+  mutate(HabitatCondition = case_when(pHab < 0.1 ~ "Low",
+    pHab >= 0.1 & pHab < 0.9 ~ "Moderate",
+    pHab >= 0.9 ~ "Severe")) %>%
+  
+  # Add Overall stress condition column.
+  mutate(OverallStressCondition = case_when(pChemHab < 0.1 ~ "Low",
+    pChemHab >= 0.1 & pChemHab < 0.9 ~ "Moderate",
+    pChemHab >= 0.9 ~ "Severe")) %>%
+  
+  # Add Overall stress detail column.
+  mutate(OverallStressCondition_detail = case_when(
+    WaterChemistryCondition == "Low" | WaterChemistryCondition == "Moderate" & 
+      HabitatCondition == "Low" | HabitatCondition == "Moderate" &
+      OverallStressCondition == "Low" | OverallStressCondition == "Moderate" ~ "Low Stress",
+    WaterChemistryCondition == "Severe" ~ "Stressed by Chemistry", 
+    HabitatCondition == "Severe" ~ "Stressed by Habitat", 
+    WaterChemistryCondition == "Severe" &
+      HabitatCondition == "Severe" ~ "Stressed by Chemistry and Habitat", 
+    WaterChemistryCondition == "Low" | WaterChemistryCondition == "Moderate" & 
+      HabitatCondition == "Low" | HabitatCondition == "Moderate" &
+      OverallStressCondition == "Severe" ~ "Stressed by Low Levels")) %>%
+  
+  # Add Stream Health Index column (based on table in SQI Shiny application and Beck et al., 2019, Section 2.4)
+  mutate(StreamHealthIndex = case_when(BiologicalCondition == "Healthy" & 
+      OverallStressCondition == "Low" ~ "Healthy and unstressed",
+    BiologicalCondition == "Healthy" & 
+      OverallStressCondition != "Low" ~ "Healthy and resilient",
+    BiologicalCondition != "Healthy" & 
+      OverallStressCondition == "Low" ~ "Impacted by unknown stress",
+    BiologicalCondition != "Healthy" & 
+      OverallStressCondition != "Low" ~ "Impacted and stressed"))
+
+# End of script.
