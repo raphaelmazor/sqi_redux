@@ -20,21 +20,19 @@ constraints <- st_read("/Users/heilil/Desktop/smc_datasets/strm_constraints/strm
   rename(meds = qt50) %>%
   rename(upper = qt90)
   
-# Add in various columns to re-create dataset that Marcus used in the first iteration of the SQI shiny.
+# Add in various columns to re-create dataset that Marcus used in the first iteration of the SQI shiny. Some of this code has been copied from Marcus' original code located at : https://github.com/SCCWRP/SQI_Doc/blob/master/R/dat_proc.R
 
 sqidat <- sqi_query %>%
   
   # Add CSCI classification column.
-  mutate(CSCI_rc = case_when(csci < 0.63 ~ "vla",
-    csci >= 0.63 & csci < 0.79 ~ "la",
-    csci >= 0.79 & csci < 0.92 ~ "pa",
-    csci >= 0.92 ~ "li")) %>%
+  mutate(CSCI_rc = cut(csci, breaks = c(-Inf, 0.63, 0.79, 0.92, Inf), 
+    labels = c('vla', 'la', 'pa', 'li')), 
+    CSCI_rc = as.character(CSCI_rc)) %>%
   
   # Add ASCI classification column.
-  mutate(ASCI_rc = case_when(d_asci < 0.70 ~ "vla",
-    d_asci >= 0.70 & d_asci < 0.83 ~ "la",
-    d_asci >= 0.83 & d_asci < 0.93 ~ "pa",
-    d_asci >= 0.93 ~ "li")) %>%
+  mutate(ASCI_rc = cut(d_asci, breaks = c(-Inf, 0.70, 0.83, 0.93, Inf), 
+    labels = c('vla', 'la', 'pa', 'li')),
+    ASCI_rc = as.character(ASCI_rc)) %>%
   
   # Add BPJ score column (based on Beck et al., 2019, Table 1)
   mutate(Bio_BPJ = case_when(d_asci >= 0.93 & csci >= 0.92 ~ 5,
@@ -55,8 +53,7 @@ sqidat <- sqi_query %>%
     d_asci < 0.70 & csci < 0.63 ~ -6)) %>%
   
   # Add additional bio score column.
-  mutate(bio_fp = case_when(Bio_BPJ < 1 ~ 0,
-    Bio_BPJ >= 1 ~ 1)) %>%
+  mutate(bio_fp = ifelse(Bio_BPJ < 0, 1, 0)) %>%
   
   # Add pChem score column. UPDATE USING R MODEL.
   mutate(pChem = 0.009) %>%
