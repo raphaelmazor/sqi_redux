@@ -4,43 +4,30 @@
 
 # All of the below code has been taken from Marcus' original script found here: https://github.com/SCCWRP/SQI_Doc/blob/master/R/dat_proc.R
 
+# Load packages
+library(tidyverse)
+library(sf)
+library(randomForest)
+
 # create sqi mods ---------------------------------------------------------
 
-data(sqidatinp)
-
-# lookup table of bio BCG class, corresponding score, and combined categorical score
-xwalk <- read.csv('raw/scoring_xwalkrc.csv', stringsAsFactors = F)
-
-# create bio categories for fail/pass combos
-# for BCG, CSCI 2, 3, 4, 5, 6 is 1.03, 0.83, 0.63, 0.33, ASCI 2, 3, 4, 5, 6 is 1.23, 0.97, 0.67, 0.3
-# for reference dist thresholds, CSCI li, pa, la, vla is 0.92, 0.79, 0.63, ASCI li, pa, la, vla is 0.93, 0.83, 0.7 
-sqidat <- sqidatinp %>%  
-  mutate(
-    CSCI_rc = cut(csci_mean, breaks = c(-Inf, 0.63, 0.79, 0.92, Inf), labels = c('vla', 'la', 'pa', 'li')), 
-    CSCI_rc = as.character(CSCI_rc),
-    ASCI_rc = cut(asci_mean, breaks = c(-Inf, 0.70, 0.83, 0.93, Inf), labels = c('vla', 'la', 'pa', 'li')),
-    ASCI_rc = as.character(ASCI_rc)
-  ) %>% 
-  left_join(xwalk, by = c('CSCI_rc', 'ASCI_rc')) %>% 
-  select(-CSCI_score, -ASCI_score) %>%
-  mutate(
-    bio_fp = ifelse(Bio_BPJ < 0, 1, 0)
-  ) %>% 
-  ungroup
+# Load in dataset from "sqi_dataset_creation_script.R".
+# Adding in a mock conductivity column for now since it's not yet in there.
+sqidat <- sqidat %>%
+  mutate(Cond = 1707)
 
 # get calibration/validation datasets
 set.seed(500)
 mydf.t<- sqidat %>% group_by(bio_fp)
-my.sites <- unique(mydf.t[, c('MasterID', 'bio_fp')])
+my.sites <- unique(mydf.t[, c('comid', 'bio_fp')])
+# Marcus did by MasterID but I'm switching to comid
 sites.cal <- sample_frac(my.sites, 0.75, replace = F) %>% 
   group_by('bio_fp')
 mydf.t <- mydf.t %>% 
-  mutate(
-    SiteSet = ifelse(MasterID %in% sites.cal$MasterID, 'Cal', 'Val')
-  ) %>% 
-  select(MasterID, yr, SiteSet)
+  mutate(SiteSet = ifelse(comid %in% sites.cal$comid, 'Cal', 'Val')) %>% 
+  select(comid, yr, SiteSet)
 sqidat <- sqidat %>% 
-  left_join(mydf.t, by = c('MasterID', 'yr', 'bio_fp'))
+  left_join(mydf.t, by = c('comid', 'yr', 'bio_fp'))
 
 # separate cal, val data
 caldat <- sqidat %>% 
@@ -49,42 +36,42 @@ valdat <- sqidat %>%
   filter(SiteSet %in% 'Val')
 
 # models, glm
-# tmp <- caldat %>% 
-#   mutate(
-#     TN = log10(0.1 + TN), 
-#     TP = log10(0.01 + TP)
-#     )
-# vif_func(tmp[, c('TN', 'TP', 'Cond')], thresh = 3)
-wqglm <- glm(bio_fp ~ log10(0.1 + TN) + log10(0.01 + TP) + Cond,
+# pChem
+wqglm <- glm(bio_fp ~ log10(0.1 + tn) + log10(0.01 + tp) + Cond,
   family = binomial('logit'), data = caldat)
 wqglm <- step(wqglm)
-vif_func(caldat[, c('bs', 'hy', 'ps', 'Ev_FlowHab', 'H_AqHab', 'H_SubNat', 'PCT_SAFN', 'XCMG')], thresh = 3)
-habglm <- glm(bio_fp ~ hy + ps + Ev_FlowHab + H_AqHab + PCT_SAFN + XCMG, family = binomial('logit'), data = caldat)
+
+# pHab
+vif_func(caldat[, c('bs', 'hy', 'ps', 'ev_flowhab', 'h_aqhab', 'h_subnat', 'pct_safn', 'xcmg')], thresh = 3)
+habglm <- glm(bio_fp ~ hy + ps + ev_flowhab + h_aqhab + pct_safn + xcmg, 
+  family = binomial('logit'), data = caldat)
 habglm <- step(habglm)
 
 # save to package 
 save(wqglm, file = '../SQI/data/wqglm.RData', compress = 'xz')
 save(habglm, file = '../SQI/data/habglm.RData', compress = 'xz')
 
-# sample data for package
-sampdat <- sqidat %>%
-  select(MasterID, yr, csci_mean, asci_mean, IPI, PCT_SAFN, H_AqHab, H_SubNat, Ev_FlowHab, XCMG, IPI, blc, bs, hy, ps, indexscore_cram, Cond, TN, TP, SiteSet) %>%
-  rename(
-    CSCI = csci_mean,
-    ASCI = asci_mean
-  )
-
-save(sampdat, file = '../SQI/data/sampdat.RData', compress = 'xz')
-
 # get SQI model results from combined data ----------------------------------
 
-sqidat <- sqidat %>% 
+# Not entirely sure what this is doing since it's pulling from the SQI package.
+sqidat2 <- sqidat %>% 
   rename(
-    CSCI = csci_mean, 
-    ASCI = asci_mean
+    CSCI = csci, 
+    ASCI = d_asci
   ) %>% 
   sqi %>% 
   st_as_sf(coords = c('Longitude', 'Latitude'), crs = prj) 
 
-save(sqidat, file = 'data/sqidat.RData', compress = 'xz')
-save(sqidat, file = '../SQI_shiny/data/sqidat.RData', compress = 'xz')
+# add predicted pChem and pHab values to sqidat
+sqidat <- sqidat %>%
+  mutate(pChem = predict(wqglm, data.frame(
+      bio_fp = sqidat$bio_fp, 
+      tn = sqidat$tn, 
+      tp = sqidat$tp,
+      Cond = sqidat$Cond)),
+    pHab = predict(habglm, data.frame(
+      hy = sqidat$hy, 
+      pct_safn = sqidat$pct_safn, 
+      xcmg = sqidat$xcmg)))
+
+# End of script.
